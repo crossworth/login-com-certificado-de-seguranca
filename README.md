@@ -49,12 +49,8 @@ Com GO instalado e o certificado de localhost devidamente configurado (utilizand
 
 
 ##### Firefox
-O navegador Firefox não apresenta a tela de solicitação de certificados, pelo menos não apresentou em meus testes.
-O motivo disso é o fato do certificado root do ICP-Brasil não estar presente no `cert store` do navegador.
-
+O navegador Firefox não apresenta a tela de solicitação de certificados.
+Você deve importar manualmente o certificado pessoal nas configurações do navegador. É importante observar que o ICP-Brasil
+não é "realmente" suportado no Firefox.
 
 Para mais informações veja o link: https://bugzilla.mozilla.org/show_bug.cgi?id=438825
-
-
-É importante observar que dependendo da empresa que emitiu o certificado, é possível que o Firefox aceite o certificado.
-Provavelmente o certificado deve ser primeiro importado na lista de certificados pessoais do navegador.
