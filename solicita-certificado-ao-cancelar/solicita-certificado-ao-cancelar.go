@@ -81,19 +81,77 @@ func main() {
 		}
 	}()
 
-	// criamos nosso servidor HTTPS informando as configurações de TLS
+	// criamos nosso servidor HTTP
 	s := http.Server{
 		Handler: mux,
-		Addr:    ":443",
-		TLSConfig: &tls.Config{
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			ClientCAs:    caPool,
-			Certificates: []tls.Certificate{httpServerCert},
-		},
 	}
 
-	// Não é preciso passar o certificado aqui porque já passamos no TLSConfig.Certificates
-	log.Fatal(s.ListenAndServeTLS("", ""))
+	// criamos as configurações TLS
+	tlsConfig := &tls.Config{
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caPool,
+		Certificates: []tls.Certificate{httpServerCert},
+	}
+
+	// iniciamos o "servidor"
+	listener, err := tls.Listen("tcp", ":443", tlsConfig)
+	if err != nil {
+		log.Fatalf("Não foi possível iniciar o servidor, %v", err)
+	}
+
+	for {
+		// aceitamos a conexão
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Não foi possível aceitar uma conexão, %v\n", err)
+			continue
+		}
+
+		// temos que executar como goroutine porque chamamos o http.Server.Serve
+		go func() {
+			log.Printf("Nova conexão de %s\n", conn.RemoteAddr())
+
+			// conseguimos a conexão TLS e iniciamos o handshake
+			// como a gente solicita o handshake para toda nova conexão
+			// estamos efetivamente fazendo um server TLS renegotiation
+			// se o cliente não informar o certificado correto ou não informar um certificado
+			// ele será solicitado novamente, exibindo a "caixa" de seleção do navegador
+			tlsConn := conn.(*tls.Conn)
+			err = tlsConn.Handshake()
+
+			if err != nil {
+				log.Printf("Erro ao fazer o handshake da conexão, %v\n", err)
+				_ = tlsConn.Close()
+				return
+			}
+
+			// precisamos agora passar para nosso servidor HTTP lidar com as rotas
+			// e tudo mais, para isso criamos um listener que implementa a interface net.Listener
+			// com a conexão que acabamos de fazer o handshake
+			err = s.Serve(&renegotiationListener{
+				conn: conn,
+			})
+			if err != nil {
+				log.Printf("Não foi possível servir uma conexão, %v\n", err)
+			}
+		}()
+	}
+}
+
+type renegotiationListener struct {
+	conn net.Conn
+}
+
+func (r *renegotiationListener) Accept() (net.Conn, error) {
+	return r.conn, nil
+}
+
+func (r renegotiationListener) Close() error {
+	return r.conn.Close()
+}
+
+func (r renegotiationListener) Addr() net.Addr {
+	return r.conn.RemoteAddr()
 }
 
 func addCertToPool(caPool *x509.CertPool, name string) {
