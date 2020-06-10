@@ -92,7 +92,8 @@ func main() {
 		},
 	}
 
-	log.Fatal(s.ListenAndServeTLS("./localhost.cert", "./localhost.key"))
+	// Não é preciso passar o certificado aqui porque já passamos no TLSConfig.Certificates
+	log.Fatal(s.ListenAndServeTLS("", ""))
 }
 
 func addCertToPool(caPool *x509.CertPool, name string) {
@@ -131,7 +132,6 @@ func extractCertData(cert *x509.Certificate, writer http.ResponseWriter) {
 
 			fmt.Printf("\nDados do certificado\n")
 			_, _ = fmt.Fprintf(writer, "\nDados do certificado\n")
-
 
 			if isForCNPJ(otherNames) {
 				fmt.Printf("Certificado para Pessoa Jurídica\n")
